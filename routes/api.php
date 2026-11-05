@@ -1,20 +1,21 @@
-
 <?php
 
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\MenuController;
+use App\Http\Controllers\Api\OrderController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Api\MenuController;
-use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AdminUserController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// Menu publik: mahasiswa dapat melihat menu tanpa login.
+// Menu publik.
 Route::get('/menus', [MenuController::class, 'index']);
 
-// Registrasi mahasiswa dan login.
+// Registrasi dan login mahasiswa.
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -22,38 +23,38 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/profile', [AuthController::class, 'profile']);
+    
+  // Manajemen pengguna khusus admin.
+Route::get('/admin/users', [AdminUserController::class, 'index']);
+Route::get('/admin/orders', [OrderController::class, 'adminOrders']);
 
-    // Pengelolaan menu dengan pemeriksaan role di MenuController.
+Route::patch('/admin/users/{id}/status', [
+    AdminUserController::class,
+    'updateStatus',
+]);
+
+// Pesanan masuk khusus PK.
+Route::get('/pk/orders', [OrderController::class, 'pkOrders']);
+
+    // Pengelolaan menu.
     Route::post('/menus', [MenuController::class, 'store']);
     Route::put('/menus/{menu}', [MenuController::class, 'update']);
     Route::patch('/menus/{menu}', [MenuController::class, 'update']);
     Route::delete('/menus/{menu}', [MenuController::class, 'destroy']);
 
-    // Dashboard hanya untuk admin aktif.
-    Route::get('/admin/dashboard', function (Request $request) {
-        $user = $request->user();
+    // Pesanan mahasiswa.
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::post('/orders', [OrderController::class, 'store']);
 
-        if ($user->status_akun !== 'aktif') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Akun kamu tidak aktif.',
-            ], 403);
-        }
+    // Konfirmasi pembayaran oleh PK atau admin.
+    Route::post('/orders/{order}/confirm-payment', [
+        OrderController::class,
+        'confirmPayment',
+    ]);
+    Route::post('/orders/{order}/mark-ready', [
+        OrderController::class,
+        'markReady',
+    ]);
 
-        if ($user->role !== 'admin') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Hanya admin yang boleh mengakses dashboard ini.',
-            ], 403);
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Ringkasan dashboard berhasil diambil.',
-            'data' => [
-                'total_pengguna' => DB::table('users')->count(),
-                'total_menu' => DB::table('menus')->count(),
-            ],
-        ]);
-    });
+    Route::get('/admin/dashboard', [AdminDashboardController::class, 'show']);
 });
